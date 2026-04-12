@@ -1,0 +1,333 @@
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const qrcode = require('qrcode-terminal');
+const fs = require('fs');
+const path = require('path');
+
+const client = new Client({
+    authStrategy: new LocalAuth(),
+    puppeteer: {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    }
+});
+
+const sessions = new Map();
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+const FLOW_STEPS = {
+    GREETING: 'greeting',
+    PRODUCT_SELECTION: 'product_selection',
+    SIZE_TYPE: 'size_type',
+    QUANTITY: 'quantity',
+    LOCATION: 'location',
+    CONTACT: 'contact',
+    BUDGET: 'budget',
+    SUMMARY: 'summary',
+    COMPLETED: 'completed'
+};
+
+const PRODUCTS = {
+    1: { name: 'Tiles', key: 'tiles' },
+    2: { name: 'Sanitary', key: 'sanitary' },
+    3: { name: 'Export Inquiry', key: 'export' },
+    4: { name: 'Other', key: 'other' }
+};
+
+const TILE_TYPES = {
+    1: { name: 'Floor Tiles', key: 'floor' },
+    2: { name: 'Wall Tiles', key: 'wall' },
+    3: { name: 'Parking Tiles', key: 'parking' }
+};
+
+const SIZES = {
+    1: { name: '2x2 Feet', key: '2x2' },
+    2: { name: '2x4 Feet', key: '2x4' },
+    3: { name: 'Custom Size', key: 'custom' }
+};
+
+const BUDGETS = {
+    1: { name: 'Economy', key: 'economy' },
+    2: { name: 'Premium', key: 'premium' },
+    3: { name: 'No Budget - Best Suggestion', key: 'no_budget' }
+};
+
+const EMOJI_NUMBERS = {
+    0: '0️⃣',
+    1: '1️⃣',
+    2: '2️⃣',
+    3: '3️⃣',
+    4: '4️⃣',
+    5: '5️⃣'
+};
+
+function getUserSession(userId) {
+    if (!sessions.has(userId)) {
+        sessions.set(userId, {
+            step: FLOW_STEPS.GREETING,
+            data: {},
+            lastActivity: Date.now(),
+            completed: false
+        });
+    }
+    return sessions.get(userId);
+}
+
+function isGreeting(text) {
+    const greetings = ['hi', 'hello', 'hey', 'namaste', 'start'];
+    return greetings.includes(text.toLowerCase().trim());
+}
+
+function isCancel(text) {
+    const cancelWords = ['cancel', 'stop', 'exit', 'quit', 'restart', '0'];
+    return cancelWords.includes(text.toLowerCase().trim());
+}
+
+function matchOption(input, options) {
+    const num = parseInt(input);
+    if (options[num]) return num;
+
+    const inputLower = input.toLowerCase().trim();
+    for (const [key, value] of Object.entries(options)) {
+        if (value.name.toLowerCase() === inputLower || value.key.toLowerCase() === inputLower) {
+            return parseInt(key);
+        }
+    }
+    return null;
+}
+
+function formatOptions(options, title) {
+    let message = title ? `${title}\n\n` : 'Please Select:\n\n';
+    for (const [key, value] of Object.entries(options)) {
+        message += `${EMOJI_NUMBERS[key] || key} ${value.name}\n`;
+    }
+    message += `\n${EMOJI_NUMBERS[0]} Cancel`;
+    return message;
+}
+
+async function sendCatalog(chat, tileType) {
+    const catalogFiles = {
+        'floor': './catalogs/Floor Tiles.pdf',
+        'wall': './catalogs/Wall Tiles.pdf',
+        'parking': './catalogs/Parking Tiles.pdf'
+    };
+
+    const catalogPath = catalogFiles[tileType];
+
+    if (catalogPath && fs.existsSync(catalogPath)) {
+        try {
+            const catalogName = tileType.charAt(0).toUpperCase() + tileType.slice(1);
+            await chat.sendMessage(`📥 Here is our latest ${catalogName} Tiles Catalog:\n⬇️ Downloading...`);
+
+            const media = MessageMedia.fromFilePath(catalogPath);
+            await chat.sendMessage(media, { caption: `${catalogName} Tiles - Full Catalog` });
+        } catch (error) {
+            console.log('Could not send PDF catalog:', error);
+            await chat.sendMessage('Sorry, unable to send catalog at the moment. Our team will share it shortly.');
+        }
+    } else {
+        await chat.sendMessage('Catalog will be shared by our team shortly.');
+    }
+}
+
+async function handleGreeting(chat, session) {
+    const greetingMessage = `Namaste! 🙏\nKem cho? Tamare tiles/sanitary ma koi inquiry hoy to mane janavo. 🏠\n\n${formatOptions(PRODUCTS, 'Please Select:')}`;
+    await chat.sendMessage(greetingMessage);
+    session.step = FLOW_STEPS.PRODUCT_SELECTION;
+    session.completed = false;
+}
+
+async function handleProductSelection(message, chat, session) {
+    const choice = matchOption(message.body, PRODUCTS);
+    if (choice && PRODUCTS[choice]) {
+        session.data.product = PRODUCTS[choice];
+
+        if (PRODUCTS[choice].key === 'tiles') {
+            const typeMessage = `Bahuj saras! 👍\nTamne kai type ni Tiles joiye?\n\n${formatOptions(TILE_TYPES, 'Please Select:')}`;
+            await chat.sendMessage(typeMessage);
+            session.step = FLOW_STEPS.SIZE_TYPE;
+        } else if (PRODUCTS[choice].key === 'sanitary') {
+            await chat.sendMessage('Please share your sanitary requirements:');
+            session.step = FLOW_STEPS.QUANTITY;
+        } else {
+            await chat.sendMessage('Please share your specific requirements:');
+            session.step = FLOW_STEPS.QUANTITY;
+        }
+    } else {
+        await chat.sendMessage(`Please select a valid option.\n\n${formatOptions(PRODUCTS, 'Please Select:')}`);
+    }
+}
+
+async function handleSizeType(message, chat, session) {
+    const choice = matchOption(message.body, TILE_TYPES);
+
+    if (choice && TILE_TYPES[choice]) {
+        session.data.tileType = TILE_TYPES[choice];
+
+        await sendCatalog(chat, TILE_TYPES[choice].key);
+
+        const sizeMessage = `Kai Size ma joiye? 😊\n\n${formatOptions(SIZES, 'Please Select:')}`;
+        await chat.sendMessage(sizeMessage);
+        session.step = FLOW_STEPS.QUANTITY;
+        session.data.waitingForSize = true;
+    } else {
+        await chat.sendMessage(`Please select a valid option.\n\n${formatOptions(TILE_TYPES, 'Please Select:')}`);
+    }
+}
+
+async function handleQuantity(message, chat, session) {
+    if (session.data.waitingForSize) {
+        const choice = matchOption(message.body, SIZES);
+        if (choice && SIZES[choice]) {
+            session.data.size = SIZES[choice];
+            session.data.waitingForSize = false;
+            await chat.sendMessage('Ketli Quantity joiye?\n(Approx. Box / Sq. Ft.)\n\nExample: 500 Box');
+        } else if (choice === 3) {
+            session.data.size = { name: message.body, key: 'custom' };
+            session.data.waitingForSize = false;
+            await chat.sendMessage('Ketli Quantity joiye?\n(Approx. Box / Sq. Ft.)\n\nExample: 500 Box');
+        } else {
+            await chat.sendMessage('Please Select:\n\n1️⃣ 2x2 Feet\n2️⃣ 2x4 Feet\n3️⃣ Custom Size\n\n0️⃣ Cancel');
+        }
+    } else {
+        session.data.quantity = message.body;
+        await chat.sendMessage('Delivery kya karvani che?\n(City / Country)\n\nExample: Mumbai / USA');
+        session.step = FLOW_STEPS.LOCATION;
+    }
+}
+
+async function handleLocation(message, chat, session) {
+    session.data.location = message.body;
+
+    const budgetMessage = `Saru, 👍 Ketla budget ma joiiye?\n\n${formatOptions(BUDGETS, 'Please Select:')}`;
+    await chat.sendMessage(budgetMessage);
+    session.step = FLOW_STEPS.BUDGET;
+}
+
+async function handleBudget(message, chat, session) {
+    const choice = matchOption(message.body, BUDGETS);
+    if (choice && BUDGETS[choice]) {
+        session.data.budget = BUDGETS[choice];
+    } else {
+        session.data.budget = { name: 'Not specified', key: 'none' };
+    }
+
+    await chat.sendMessage('Thanks! 🙏\nTamara mobile number moklsho?\nAme Best Price ane Details moklishu.');
+    session.step = FLOW_STEPS.CONTACT;
+}
+
+async function handleContact(message, chat, session) {
+    session.data.contact = message.body;
+
+    const summary = `Thanks, ${message._data.notifyName || 'Customer'}! 🙏
+Tamari Inquiry Details successfully receive thai gayi che:
+
+✅ Type: ${session.data.product?.name || 'Not specified'}
+${session.data.tileType ? `✅ Tile Type: ${session.data.tileType.name}` : ''}
+${session.data.size ? `✅ Size: ${session.data.size.name}` : ''}
+✅ Quantity: ${session.data.quantity || 'Not specified'}
+📍 Location: ${session.data.location || 'Not specified'}
+💰 Budget: ${session.data.budget?.name || 'Not specified'}
+📞 Contact: ${session.data.contact}
+
+Team jaldi tamaro contact karse 📞
+Thanks, Have a Great Day! 😊`;
+
+    await chat.sendMessage(summary);
+
+    session.step = FLOW_STEPS.COMPLETED;
+    session.completed = true;
+}
+
+client.on('qr', (qr) => {
+    console.log('QR Code received, scan it with your phone:');
+    qrcode.generate(qr, { small: true });
+});
+
+client.on('ready', () => {
+    console.log('WhatsApp Bot is ready!');
+    console.log('Bot is now running and waiting for messages...');
+});
+
+client.on('message', async (message) => {
+    if (message.from.includes('@g.us')) return;
+
+    const chat = await message.getChat();
+    const session = getUserSession(message.from);
+
+    const timeSinceLastActivity = Date.now() - session.lastActivity;
+    if (timeSinceLastActivity > 30 * 60 * 1000) {
+        session.step = FLOW_STEPS.GREETING;
+        session.data = {};
+        session.completed = false;
+    }
+
+    session.lastActivity = Date.now();
+
+    await delay(2000);
+
+    if (isCancel(message.body)) {
+        await chat.sendMessage('Inquiry cancelled. Type "hi" to start a new inquiry.');
+        session.step = FLOW_STEPS.GREETING;
+        session.data = {};
+        session.completed = false;
+        return;
+    }
+
+    if (isGreeting(message.body)) {
+        session.step = FLOW_STEPS.GREETING;
+        session.data = {};
+        session.completed = false;
+    }
+
+    if (session.step === FLOW_STEPS.COMPLETED && !isGreeting(message.body)) {
+        return;
+    }
+
+    try {
+        switch (session.step) {
+            case FLOW_STEPS.GREETING:
+                await handleGreeting(chat, session);
+                break;
+            case FLOW_STEPS.PRODUCT_SELECTION:
+                await handleProductSelection(message, chat, session);
+                break;
+            case FLOW_STEPS.SIZE_TYPE:
+                await handleSizeType(message, chat, session);
+                break;
+            case FLOW_STEPS.QUANTITY:
+                await handleQuantity(message, chat, session);
+                break;
+            case FLOW_STEPS.LOCATION:
+                await handleLocation(message, chat, session);
+                break;
+            case FLOW_STEPS.BUDGET:
+                await handleBudget(message, chat, session);
+                break;
+            case FLOW_STEPS.CONTACT:
+                await handleContact(message, chat, session);
+                break;
+            case FLOW_STEPS.COMPLETED:
+                return;
+            default:
+                await handleGreeting(chat, session);
+        }
+    } catch (error) {
+        console.error('Error handling message:', error);
+        await chat.sendMessage('Sorry, something went wrong. Please try again.');
+        session.step = FLOW_STEPS.GREETING;
+        session.data = {};
+        session.completed = false;
+    }
+});
+
+client.on('disconnected', (reason) => {
+    console.log('Client was logged out:', reason);
+});
+
+client.initialize();
+
+console.log('Starting WhatsApp Bot...');
+console.log('Please wait for QR code to appear...');

@@ -1,0 +1,77 @@
+{
+  "floorTiles": {
+    "marble": {
+      "name": "Marble Look",
+      "description": "Premium marble finish tiles",
+      "sizes": ["2x2", "2x4", "4x4"],
+      "price_range": "₹45-85 per sq.ft",
+      "image": "marble.jpg"
+    },
+    "matte": {
+      "name": "Matte Finish",
+      "description": "Modern matte finish tiles",
+      "sizes": ["2x2", "2x4"],
+      "price_range": "₹35-65 per sq.ft",
+      "image": "matte.jpg"
+    },
+    "glossy": {
+      "name": "Glossy Finish",
+      "description": "High gloss finish tiles",
+      "sizes": ["2x2", "2x4", "3x3"],
+      "price_range": "₹40-70 per sq.ft",
+      "image": "glossy.jpg"
+    },
+    "wooden": {
+      "name": "Wooden Look",
+      "description": "Wood texture tiles",
+      "sizes": ["1x4", "2x4"],
+      "price_range": "₹50-90 per sq.ft",
+      "image": "wooden.jpg"
+    }
+  },
+  "wallTiles": {
+    "ceramic": {
+      "name": "Ceramic Wall Tiles",
+      "description": "Standard ceramic wall tiles",
+      "sizes": ["1x1", "1x2"],
+      "price_range": "₹25-45 per sq.ft"
+    },
+    "subway": {
+      "name": "Subway Tiles",
+      "description": "Classic subway pattern tiles",
+      "sizes": ["3x6", "4x8"],
+      "price_range": "₹30-50 per sq.ft"
+    }
+  },
+  "parkingTiles": {
+    "heavy_duty": {
+      "name": "Heavy Duty Parking Tiles",
+      "description": "Extra strong for vehicle parking",
+      "sizes": ["2x2", "1x1"],
+      "price_range": "₹30-45 per sq.ft"
+    },
+    "interlocking": {
+      "name": "Interlocking Tiles",
+      "description": "Easy to install interlocking tiles",
+      "sizes": ["1x1", "2x2"],
+      "price_range": "₹35-55 per sq.ft"
+    }
+  },
+  "sanitary": {
+    "washbasins": {
+      "name": "Wash Basins",
+      "types": ["Wall Mounted", "Pedestal", "Counter Top"],
+      "price_range": "₹2,000-15,000"
+    },
+    "toilets": {
+      "name": "Toilets",
+      "types": ["Wall Hung", "Floor Mounted", "One Piece"],
+      "price_range": "₹5,000-25,000"
+    },
+    "faucets": {
+      "name": "Faucets & Taps",
+      "types": ["Basin Mixer", "Sink Mixer", "Bath Fittings"],
+      "price_range": "₹1,500-8,000"
+    }
+  }
+}

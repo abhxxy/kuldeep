@@ -1,0 +1,19 @@
+{
+  "name": "kuldeep",
+  "version": "1.0.0",
+  "description": "WhatsApp Bot for Tiles and Sanitary Business Inquiry Automation",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "start:enhanced": "node enhanced-bot.js",
+    "dev": "node --watch bot.js"
+  },
+  "keywords": ["whatsapp", "bot", "automation", "tiles", "business"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.34.6"
+  }
+}
