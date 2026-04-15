@@ -154,9 +154,12 @@ async function sendCatalog(chat, tileType) {
         const stats = fs.statSync(catalogPath);
         const fileSizeMB = stats.size / 1024 / 1024;
 
+        // Based on testing, WhatsApp Web.js on servers seems to hang with files > 10MB
+        const MAX_SAFE_SIZE_MB = 10;
+
         // Check if file is too large
-        if (fileSizeMB > 16) {
-            console.log(`File too large (${fileSizeMB.toFixed(2)} MB) - sending download link instead`);
+        if (fileSizeMB > MAX_SAFE_SIZE_MB) {
+            console.log(`File too large (${fileSizeMB.toFixed(2)} MB) - exceeds safe limit of ${MAX_SAFE_SIZE_MB} MB`);
             const catalogName = tileType.charAt(0).toUpperCase() + tileType.slice(1);
             await chat.sendMessage(
                 `📥 ${catalogName} Tiles Catalog\n\n` +
@@ -164,7 +167,7 @@ async function sendCatalog(chat, tileType) {
                 `Please contact our team for the catalog:\n` +
                 `📱 WhatsApp: +91 [Your Number]\n` +
                 `📧 Email: [Your Email]\n\n` +
-                `They will share the catalog through an alternative method.`
+                `They will share the catalog through Google Drive or email.`
             );
             console.log(`Sent alternative message for large file`);
             return;
@@ -427,6 +430,22 @@ client.on('message', async (message) => {
         console.log('=== DIRECT PDF TEST ===');
         await chat.sendMessage('Testing PDF sending directly...');
         await sendCatalog(chat, 'test');
+        return;
+    }
+
+    // Test parking tiles (8.92 MB)
+    if (message.body.toLowerCase() === '!testparking') {
+        console.log('=== TESTING PARKING TILES PDF (8.92 MB) ===');
+        await chat.sendMessage('Testing Parking Tiles PDF (8.92 MB)...');
+        await sendCatalog(chat, 'parking');
+        return;
+    }
+
+    // Test floor tiles (12.73 MB)
+    if (message.body.toLowerCase() === '!testfloor') {
+        console.log('=== TESTING FLOOR TILES PDF (12.73 MB) ===');
+        await chat.sendMessage('Testing Floor Tiles PDF (12.73 MB)...');
+        await sendCatalog(chat, 'floor');
         return;
     }
 
