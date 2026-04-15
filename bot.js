@@ -135,12 +135,39 @@ async function sendCatalog(chat, tileType) {
 
     if (fileExists) {
         const stats = fs.statSync(catalogPath);
-        console.log(`File Size: ${stats.size} bytes (${(stats.size / 1024 / 1024).toFixed(2)} MB)`);
+        const fileSizeMB = stats.size / 1024 / 1024;
+        console.log(`File Size: ${stats.size} bytes (${fileSizeMB.toFixed(2)} MB)`);
         console.log(`File Permissions: ${stats.mode}`);
         console.log(`Is File: ${stats.isFile()}`);
+
+        // WhatsApp has a ~16MB limit for media files (varies by type)
+        const MAX_FILE_SIZE_MB = 16;
+        if (fileSizeMB > MAX_FILE_SIZE_MB) {
+            console.log(`⚠️ WARNING: File size (${fileSizeMB.toFixed(2)} MB) exceeds WhatsApp limit (${MAX_FILE_SIZE_MB} MB)`);
+            console.log(`Will attempt to send, but may fail or timeout`);
+        }
     }
 
     if (catalogPath && fs.existsSync(catalogPath)) {
+        const stats = fs.statSync(catalogPath);
+        const fileSizeMB = stats.size / 1024 / 1024;
+
+        // Check if file is too large
+        if (fileSizeMB > 16) {
+            console.log(`File too large (${fileSizeMB.toFixed(2)} MB) - sending download link instead`);
+            const catalogName = tileType.charAt(0).toUpperCase() + tileType.slice(1);
+            await chat.sendMessage(
+                `📥 ${catalogName} Tiles Catalog\n\n` +
+                `⚠️ The catalog file is too large to send directly (${fileSizeMB.toFixed(2)} MB).\n\n` +
+                `Please contact our team for the catalog:\n` +
+                `📱 WhatsApp: +91 [Your Number]\n` +
+                `📧 Email: [Your Email]\n\n` +
+                `They will share the catalog through an alternative method.`
+            );
+            console.log(`Sent alternative message for large file`);
+            return;
+        }
+
         try {
             const catalogName = tileType.charAt(0).toUpperCase() + tileType.slice(1);
             console.log(`Sending preliminary message for ${catalogName} catalog...`);
@@ -169,25 +196,35 @@ async function sendCatalog(chat, tileType) {
             console.log(`Attempting to send PDF media...`);
             const sendStartTime = Date.now();
 
+            // Create a timeout promise
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Send timeout after 30 seconds')), 30000);
+            });
+
+            // Race between send and timeout
             try {
-                await chat.sendMessage(media, {
-                    caption: `${catalogName} Tiles - Full Catalog`,
-                    sendMediaAsDocument: true
-                });
+                await Promise.race([
+                    chat.sendMessage(media, {
+                        caption: `${catalogName} Tiles - Full Catalog`,
+                        sendMediaAsDocument: true
+                    }),
+                    timeoutPromise
+                ]);
+
                 const sendTime = Date.now() - sendStartTime;
                 console.log(`✅ PDF SENT SUCCESSFULLY in ${sendTime}ms`);
             } catch (sendError) {
-                console.log(`First attempt failed, trying alternative method...`);
-                console.log(`Error was: ${sendError.message}`);
+                console.log(`Send failed or timed out: ${sendError.message}`);
 
-                // Try with explicit document flag
-                await chat.sendMessage(media, {
-                    caption: `${catalogName} Tiles - Full Catalog`,
-                    sendMediaAsDocument: true,
-                    sendAudioAsVoice: false
-                });
-                const sendTime = Date.now() - sendStartTime;
-                console.log(`✅ PDF SENT WITH ALTERNATIVE METHOD in ${sendTime}ms`);
+                // If it was a timeout or other error, send alternative message
+                await chat.sendMessage(
+                    `📥 ${catalogName} Tiles Catalog\n\n` +
+                    `Unable to send the PDF directly at this moment.\n` +
+                    `Our team will share the catalog with you shortly.\n\n` +
+                    `For immediate assistance:\n` +
+                    `📱 Contact our sales team`
+                );
+                console.log(`Sent fallback message due to send failure`);
             }
         } catch (error) {
             console.error(`❌ ERROR SENDING PDF CATALOG:`);
