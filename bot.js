@@ -115,7 +115,8 @@ async function sendCatalog(chat, tileType) {
     const catalogFiles = {
         'floor': './catalogs/Floor Tiles.pdf',
         'wall': './catalogs/Wall Tiles.pdf',
-        'parking': './catalogs/Parking Tiles.pdf'
+        'parking': './catalogs/Parking Tiles.pdf',
+        'test': './catalogs/test-small.pdf'  // For testing
     };
 
     const catalogPath = catalogFiles[tileType];
@@ -176,20 +177,28 @@ async function sendCatalog(chat, tileType) {
 
             console.log(`Memory before loading PDF:`, process.memoryUsage());
 
-            console.log(`Creating MessageMedia from file path...`);
+            console.log(`Creating MessageMedia...`);
             const startTime = Date.now();
-            const media = MessageMedia.fromFilePath(catalogPath);
+
+            // Try different approach - read file buffer directly
+            console.log(`Reading file buffer...`);
+            const fileBuffer = fs.readFileSync(catalogPath);
+            console.log(`File buffer size: ${fileBuffer.length} bytes`);
+
+            // Convert to base64
+            console.log(`Converting to base64...`);
+            const base64data = fileBuffer.toString('base64');
+            console.log(`Base64 length: ${base64data.length}`);
+
+            // Create MessageMedia manually
+            const media = new MessageMedia('application/pdf', base64data, `${catalogName} Tiles.pdf`);
+
             const loadTime = Date.now() - startTime;
             console.log(`MessageMedia created successfully in ${loadTime}ms`);
 
             console.log(`Media mimetype: ${media.mimetype}`);
             console.log(`Media filename: ${media.filename}`);
             console.log(`Media data exists: ${media.data ? 'YES' : 'NO'}`);
-            if (media.data) {
-                console.log(`Media data length: ${media.data.length} characters`);
-                console.log(`Estimated size: ${(media.data.length * 0.75 / 1024 / 1024).toFixed(2)} MB`);
-                console.log(`First 100 chars of base64: ${media.data.substring(0, 100)}`);
-            }
 
             console.log(`Memory after loading PDF:`, process.memoryUsage());
 
@@ -203,18 +212,32 @@ async function sendCatalog(chat, tileType) {
 
             // Race between send and timeout
             try {
+                console.log(`Trying to send as document...`);
+
+                // Try simpler send first
                 await Promise.race([
-                    chat.sendMessage(media, {
-                        caption: `${catalogName} Tiles - Full Catalog`,
-                        sendMediaAsDocument: true
-                    }),
+                    chat.sendMessage(media),
                     timeoutPromise
                 ]);
 
                 const sendTime = Date.now() - sendStartTime;
                 console.log(`✅ PDF SENT SUCCESSFULLY in ${sendTime}ms`);
             } catch (sendError) {
-                console.log(`Send failed or timed out: ${sendError.message}`);
+                console.log(`First attempt failed: ${sendError.message}`);
+                console.log(`Trying with sendMediaAsDocument flag...`);
+
+                try {
+                    await Promise.race([
+                        chat.sendMessage(media, {
+                            caption: `${catalogName} Tiles Catalog`,
+                            sendMediaAsDocument: true
+                        }),
+                        timeoutPromise
+                    ]);
+                    const sendTime = Date.now() - sendStartTime;
+                    console.log(`✅ PDF SENT WITH DOCUMENT FLAG in ${sendTime}ms`);
+                } catch (secondError) {
+                    console.log(`Second attempt also failed: ${secondError.message}`);
 
                 // If it was a timeout or other error, send alternative message
                 await chat.sendMessage(
