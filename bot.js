@@ -239,15 +239,16 @@ async function sendCatalog(chat, tileType) {
                 } catch (secondError) {
                     console.log(`Second attempt also failed: ${secondError.message}`);
 
-                // If it was a timeout or other error, send alternative message
-                await chat.sendMessage(
-                    `📥 ${catalogName} Tiles Catalog\n\n` +
-                    `Unable to send the PDF directly at this moment.\n` +
-                    `Our team will share the catalog with you shortly.\n\n` +
-                    `For immediate assistance:\n` +
-                    `📱 Contact our sales team`
-                );
-                console.log(`Sent fallback message due to send failure`);
+                    // If it was a timeout or other error, send alternative message
+                    await chat.sendMessage(
+                        `📥 ${catalogName} Tiles Catalog\n\n` +
+                        `Unable to send the PDF directly at this moment.\n` +
+                        `Our team will share the catalog with you shortly.\n\n` +
+                        `For immediate assistance:\n` +
+                        `📱 Contact our sales team`
+                    );
+                    console.log(`Sent fallback message due to send failure`);
+                }
             }
         } catch (error) {
             console.error(`❌ ERROR SENDING PDF CATALOG:`);
