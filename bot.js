@@ -7,8 +7,20 @@ const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    }
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',  // Fix for limited /dev/shm on servers
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process',  // Helps on low-memory servers
+            '--disable-gpu'
+        ]
+    },
+    // Increase timeouts for slower servers
+    qrTimeoutMs: 60000,
+    authTimeoutMs: 60000
 });
 
 const sessions = new Map();
@@ -154,9 +166,9 @@ async function sendCatalog(chat, tileType) {
         const stats = fs.statSync(catalogPath);
         const fileSizeMB = stats.size / 1024 / 1024;
 
-        // Based on testing, WhatsApp Web.js on servers seems to hang with larger files
-        // Start with 2MB limit, can be adjusted based on testing
-        const MAX_SAFE_SIZE_MB = 2;
+        // Based on testing, WhatsApp Web.js on this server works up to 5MB
+        // Files larger than 5MB will timeout/hang
+        const MAX_SAFE_SIZE_MB = 5;
 
         // Check if file is too large
         if (fileSizeMB > MAX_SAFE_SIZE_MB) {
