@@ -147,16 +147,48 @@ async function sendCatalog(chat, tileType) {
             await chat.sendMessage(`📥 Here is our latest ${catalogName} Tiles Catalog:\n⬇️ Downloading...`);
             console.log(`Preliminary message sent successfully`);
 
+            console.log(`Memory before loading PDF:`, process.memoryUsage());
+
             console.log(`Creating MessageMedia from file path...`);
+            const startTime = Date.now();
             const media = MessageMedia.fromFilePath(catalogPath);
-            console.log(`MessageMedia created successfully`);
+            const loadTime = Date.now() - startTime;
+            console.log(`MessageMedia created successfully in ${loadTime}ms`);
+
             console.log(`Media mimetype: ${media.mimetype}`);
             console.log(`Media filename: ${media.filename}`);
-            console.log(`Media data length: ${media.data ? media.data.length : 'No data'}`);
+            console.log(`Media data exists: ${media.data ? 'YES' : 'NO'}`);
+            if (media.data) {
+                console.log(`Media data length: ${media.data.length} characters`);
+                console.log(`Estimated size: ${(media.data.length * 0.75 / 1024 / 1024).toFixed(2)} MB`);
+                console.log(`First 100 chars of base64: ${media.data.substring(0, 100)}`);
+            }
+
+            console.log(`Memory after loading PDF:`, process.memoryUsage());
 
             console.log(`Attempting to send PDF media...`);
-            await chat.sendMessage(media, { caption: `${catalogName} Tiles - Full Catalog` });
-            console.log(`✅ PDF SENT SUCCESSFULLY`);
+            const sendStartTime = Date.now();
+
+            try {
+                await chat.sendMessage(media, {
+                    caption: `${catalogName} Tiles - Full Catalog`,
+                    sendMediaAsDocument: true
+                });
+                const sendTime = Date.now() - sendStartTime;
+                console.log(`✅ PDF SENT SUCCESSFULLY in ${sendTime}ms`);
+            } catch (sendError) {
+                console.log(`First attempt failed, trying alternative method...`);
+                console.log(`Error was: ${sendError.message}`);
+
+                // Try with explicit document flag
+                await chat.sendMessage(media, {
+                    caption: `${catalogName} Tiles - Full Catalog`,
+                    sendMediaAsDocument: true,
+                    sendAudioAsVoice: false
+                });
+                const sendTime = Date.now() - sendStartTime;
+                console.log(`✅ PDF SENT WITH ALTERNATIVE METHOD in ${sendTime}ms`);
+            }
         } catch (error) {
             console.error(`❌ ERROR SENDING PDF CATALOG:`);
             console.error(`Error Type: ${error.constructor.name}`);
