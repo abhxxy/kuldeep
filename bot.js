@@ -51,8 +51,7 @@ const PRODUCTS = {
 const TILE_TYPES = {
     1: { name: 'Floor Tiles', key: 'floor' },
     2: { name: 'Wall Tiles', key: 'wall' },
-    3: { name: 'Parking Tiles', key: 'parking' },
-    99: { name: 'Test Small PDF', key: 'test' }  // Hidden test option
+    3: { name: 'Parking Tiles', key: 'parking' }
 };
 
 const SIZES = {
@@ -128,8 +127,7 @@ async function sendCatalog(chat, tileType) {
     const catalogFiles = {
         'floor': './catalogs/Floor Tiles.pdf',
         'wall': './catalogs/Wall Tiles.pdf',
-        'parking': './catalogs/Parking Tiles.pdf',
-        'test': './catalogs/test-small.pdf'  // For testing
+        'parking': './catalogs/Parking Tiles.pdf'
     };
 
     const catalogPath = catalogFiles[tileType];
