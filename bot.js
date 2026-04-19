@@ -187,7 +187,7 @@ async function sendCatalog(chat, tileType) {
         try {
             const catalogName = tileType.charAt(0).toUpperCase() + tileType.slice(1);
             console.log(`Sending preliminary message for ${catalogName} catalog...`);
-            await chat.sendMessage(`📥 Here is our latest ${catalogName} Tiles Catalog:\n⬇️ Downloading...`);
+            await chat.sendMessage(`📥 Here is our latest ${catalogName} Tiles Catalog:`);
             console.log(`Preliminary message sent successfully`);
 
             console.log(`Memory before loading PDF:`, process.memoryUsage());
